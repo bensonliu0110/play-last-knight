@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Foeman's Fall sword emblem">
+  <circle cx="50" cy="50" r="46" fill="#25150d" stroke="#e9b96e" stroke-width="3"/>
+  <path d="M31 70 L66 35 L73 42 L38 77 Z" fill="#ffe0a3" stroke="#8b4b25" stroke-width="3"/>
+  <path d="M27 73 L38 77 L29 82 Z" fill="#8b4b25"/>
+  <path d="M57 44 L67 54" stroke="#e9b96e" stroke-width="6" stroke-linecap="round"/>
+  <path d="M64 30 L73 39" stroke="#fff0c8" stroke-width="4" stroke-linecap="round"/>
+</svg>

@@ -42,16 +42,18 @@
         <div class="sub-screen-frame">
           <img id="sub-screen-image" src="" alt="" />
           <div class="playtime-rewards" id="playtime-rewards" aria-label="Play time rewards"></div>
+          <div class="shop-offers" id="shop-offers" aria-label="Coin offers"></div>
+          <div class="achievement-list" id="achievement-list" aria-label="Achievements"></div>
           <div class="arena-controls" id="arena-controls" aria-label="Arena controls">
             <div class="arena-enemies" id="arena-enemies" aria-label="Enemies"></div>
             <div class="arena-projectiles" id="arena-projectiles" aria-label="Projectiles"></div>
+            <div class="arena-potions" id="arena-potions" aria-label="Potions"></div>
             <div class="arena-player-vitals" id="arena-player-vitals" aria-label="Player health and shield">
               <div class="arena-vital-bar arena-vital-bar--health"><span id="player-health-fill"></span></div>
               <div class="arena-vital-bar arena-vital-bar--shield"><span id="player-shield-fill"></span></div>
             </div>
             <img class="arena-player" id="arena-player" src="" alt="Default knight" />
             <span class="arena-player-attack" id="arena-player-attack" aria-hidden="true"></span>
-            <span class="arena-forcefield" id="arena-forcefield" aria-hidden="true"></span>
             <div class="arena-wave-hud" aria-live="polite">
               <strong id="arena-wave-number">Wave 1</strong>
               <span id="arena-enemies-left">Enemies Left: 0</span>
@@ -75,11 +77,11 @@
               <strong id="arena-run-coins">0</strong>
             </aside>
             <div class="arena-special-upgrades" aria-label="Special upgrades">
-              <button class="arena-special-slot" type="button" disabled aria-label="Empty special upgrade slot"></button>
-              <button class="arena-special-slot" type="button" disabled aria-label="Empty special upgrade slot"></button>
-              <button class="arena-special-slot" type="button" disabled aria-label="Empty special upgrade slot"></button>
-              <button class="arena-special-slot" type="button" disabled aria-label="Empty special upgrade slot"></button>
-              <button class="arena-special-slot" type="button" disabled aria-label="Empty special upgrade slot"></button>
+              <button class="arena-special-slot" data-special="bouncyProjectile" type="button" disabled aria-label="Locked special upgrade"></button>
+              <button class="arena-special-slot" data-special="lifeSteal" type="button" disabled aria-label="Locked special upgrade"></button>
+              <button class="arena-special-slot" data-special="fireTrail" type="button" disabled aria-label="Locked special upgrade"></button>
+              <button class="arena-special-slot" data-special="precision" type="button" disabled aria-label="Locked special upgrade"></button>
+              <button class="arena-special-slot" data-special="autoHealing" type="button" disabled aria-label="Locked special upgrade"></button>
             </div>
           </div>
           <section class="arena-game-over" id="arena-game-over" aria-hidden="true">

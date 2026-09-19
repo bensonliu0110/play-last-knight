@@ -17,11 +17,30 @@ const LastKnightGame = {
       projectileTimer: null,
       fireTrails: [],
       hitCount: 0,
+      achievements: [
+        { name: "Foeman's Fall", subtitle: 'Defeat a total of 50 enemies across all runs.', icon: 'achievement-foemans-fall.svg', progress: 0, goal: 50, type: 'defeats' },
+        { name: 'The Grand Crusader', subtitle: 'Defeat a total of 500 enemies across all runs.', icon: 'castle', progress: 0, goal: 500, type: 'defeats' },
+        { name: "Squire's Trial", subtitle: 'Reach Wave 5.', icon: 'shield', progress: 0, goal: 5, type: 'wave' },
+        { name: 'High Knight of the Realm', subtitle: 'Reach Wave 15.', icon: 'crown', progress: 0, goal: 15, type: 'wave' },
+        { name: 'Royal Garb', subtitle: 'Purchase any character skin from the shop.', icon: 'helm', progress: 0, goal: 1, type: 'skin' },
+        { name: 'The Long Siege', subtitle: 'Accumulate 1 hour of actual gameplay time.', icon: 'hourglass', progress: 0, goal: 3600, type: 'time' },
+        { name: 'Daily Tribute', subtitle: 'Complete a full set of 3 Daily Quests.', icon: 'sun', progress: 0, goal: 3, type: 'quests' },
+        { name: "King's Treasury", subtitle: 'Earn a total of 15,000 Coins across your lifetime play.', icon: 'treasury', progress: 0, goal: 15000, type: 'lifetimeCoins' },
+      ],
+      blocking: false,
+      blockUntil: 0,
+      blockCooldownUntil: 0,
+      gameOver: false,
+      pendingTypes: [],
+      potionTimer: null,
+      potion: null,
+      potionBuffTimers: [],
       paused: true,
       wave: 1,
       keys: new Set(),
       movementFrame: null,
-      stats: { health: 100, shield: 25, damage: 1, speed: 1, crit: 0.3 },
+      stats: { health: 100, shield: 25, damage: 1, speed: 1, crit: 0.3, meleeRange: 1, attackSpeed: 1 },
+      enemySpeedMultiplier: 1,
       currentHealth: 100,
       currentShield: 25,
       lastDamageAt: 0,
@@ -36,6 +55,9 @@ const LastKnightGame = {
         { name: '+25% Damage', stat: 'damage', amount: 0.25 },
         { name: '+15% Speed', stat: 'speed', amount: 0.15 },
         { name: '+20% Crit Chance', stat: 'crit', amount: 0.2 },
+        { name: '+20% Melee Range', stat: 'meleeRange', amount: 0.2 },
+        { name: '+15% Attack Speed', stat: 'attackSpeed', amount: 0.15 },
+        { name: '+30% Attack Speed', stat: 'attackSpeed', amount: 0.3 },
         { name: 'Javelin', stat: 'weapon', weapon: 'javelin' },
         { name: 'Crossbow', stat: 'weapon', weapon: 'crossbow' },
         { name: 'Dagger', stat: 'weapon', weapon: 'dagger' },
@@ -44,6 +66,8 @@ const LastKnightGame = {
         { name: 'Fire Trail', stat: 'special', special: 'fireTrail' },
         { name: 'Precision', stat: 'special', special: 'precision' },
         { name: 'Auto Healing', assetName: 'Auto Heal', stat: 'special', special: 'autoHealing' },
+        { name: '-20% Enemy Speed', stat: 'enemySpeed', amount: 0.2 },
+        { name: '-40% Enemy Speed', stat: 'enemySpeed', amount: 0.4 },
       ],
       currentUpgrades: [],
       enemies: [],
@@ -102,6 +126,8 @@ const LastKnightGame = {
     const subScreenBack = document.querySelector('#sub-screen-back');
     const subScreenFrame = document.querySelector('.sub-screen-frame');
     const rewardsPanel = document.querySelector('#playtime-rewards');
+    const shopOffers = document.querySelector('#shop-offers');
+    const achievementList = document.querySelector('#achievement-list');
     const arenaControls = document.querySelector('#arena-controls');
     const arenaPlayer = document.querySelector('#arena-player');
     const playerVitals = document.querySelector('#arena-player-vitals');
@@ -114,6 +140,8 @@ const LastKnightGame = {
     const statsPanel = document.querySelector('#arena-stats');
     const statsToggle = document.querySelector('#arena-stats-toggle');
     const statsClose = document.querySelector('#arena-stats-close');
+    const gameOver = document.querySelector('#arena-game-over');
+    const gameOverBack = document.querySelector('#game-over-back');
     const menuHitAreas = document.querySelectorAll('.menu-hit-area');
     const screenPath = 'Last Knight Assets/Main Screen Button Assets/';
 
@@ -124,7 +152,10 @@ const LastKnightGame = {
       subScreenFrame.style.aspectRatio = '1448 / 1086';
       subScreenFrame.classList.remove('is-playtime');
       subScreenFrame.classList.remove('is-arena');
+      subScreenFrame.classList.remove('is-shop');
+      subScreenFrame.classList.remove('is-achievements');
       LastKnightGame.state.arena.active = false;
+      LastKnightGame.state.arena.gameOver = false;
       LastKnightGame.stopArenaMovement();
       LastKnightGame.stopEnemySystem();
       enemyLayer.innerHTML = '';
@@ -133,6 +164,8 @@ const LastKnightGame = {
       statsPanel.hidden = true;
       statsToggle.hidden = false;
       statsToggle.setAttribute('aria-expanded', 'false');
+      gameOver.classList.remove('is-visible');
+      gameOver.setAttribute('aria-hidden', 'true');
     }
 
     menuHitAreas.forEach((menuHitArea) => {
@@ -143,6 +176,10 @@ const LastKnightGame = {
         subScreenImage.alt = screenName.replace(' Screen.png', ' screen');
         subScreenFrame.style.aspectRatio = menuHitArea.dataset.screenAspect || '1448 / 1086';
         subScreenFrame.classList.toggle('is-playtime', screenName === 'Play Time Screen.png');
+        subScreenFrame.classList.toggle('is-shop', screenName === 'Shop Screen.png');
+        if (screenName === 'Shop Screen.png') this.renderShopOffers(shopOffers);
+        subScreenFrame.classList.toggle('is-achievements', screenName === 'Achievements Screen.png');
+        if (screenName === 'Achievements Screen.png') this.renderAchievements(achievementList);
         const isArena = screenName === 'Last Knight Arena Asset.gif';
         subScreenFrame.classList.toggle('is-arena', isArena);
         this.state.arena.active = isArena;
@@ -197,6 +234,11 @@ const LastKnightGame = {
       statsToggle.setAttribute('aria-expanded', 'false');
     });
 
+    gameOverBack.addEventListener('click', () => {
+      this.collectGameOverCoins();
+      closeSubScreen();
+    });
+
     subScreenFrame.addEventListener('pointermove', (event) => {
       if (!this.state.arena.active) return;
       const bounds = subScreenFrame.getBoundingClientRect();
@@ -217,11 +259,20 @@ const LastKnightGame = {
     this.state.arena.weapon = 'sword';
     this.state.arena.unlockedWeapons = ['sword'];
     this.state.arena.runCoins = 0;
+    this.state.arena.enemySpeedMultiplier = 1;
     this.state.arena.playerHistory = [];
     this.state.arena.acquiredSpecials = new Set();
     this.state.arena.projectiles = [];
     this.state.arena.fireTrails = [];
     this.state.arena.hitCount = 0;
+    this.state.arena.gameOver = false;
+    this.state.arena.pendingTypes = [];
+    clearTimeout(this.state.arena.potionTimer);
+    this.state.arena.potion = null;
+    this.state.arena.potionBuffTimers.forEach((timer) => clearTimeout(timer));
+    this.state.arena.potionBuffTimers = [];
+    document.querySelector('#arena-game-over').classList.remove('is-visible');
+    document.querySelector('#arena-game-over').setAttribute('aria-hidden', 'true');
     this.state.arena.paused = true;
     this.state.arena.keys.clear();
     this.state.arena.waveCompleteQueued = false;
@@ -236,24 +287,32 @@ const LastKnightGame = {
     this.renderArenaPlayer(arenaPlayer);
     this.renderPlayerVitals(playerVitals);
     this.renderStats();
+    this.renderSpecialSlots();
     this.renderRunCoins();
+    this.renderAchievements(document.querySelector('#achievement-list'));
     this.showUpgradePhase(upgradePhase, upgradeCards);
     enemyLayer.innerHTML = '';
     projectileLayer.innerHTML = '';
     this.state.arena.enemies = [];
+      this.renderSpecialSlots();
     this.state.arena.pendingEnemies = 0;
     this.stopEnemySystem();
     this.state.arena.projectileTimer = setInterval(() => {
       if (this.state.arena.active) this.updateProjectiles();
     }, 16);
     this.startArenaMovement(arenaPlayer);
+    this.updateAchievement('wave', this.state.arena.wave);
   },
 
   startArenaMovement(arenaPlayer) {
     this.stopArenaMovement();
     const move = () => {
       if (this.state.arena.active) {
+        const now = performance.now();
+        this.state.arena.playerHistory.push({ time: now, x: this.state.arena.x, y: this.state.arena.y });
+        this.state.arena.playerHistory = this.state.arena.playerHistory.filter((position) => now - position.time <= 1300);
         if (!this.state.arena.paused) this.moveArenaPlayer(arenaPlayer);
+        this.checkPotionContact();
         this.updateProjectiles();
         this.updateFireTrails();
         this.updateAutoHealing(performance.now());
@@ -272,6 +331,7 @@ const LastKnightGame = {
     const available = this.state.arena.upgrades.filter((upgrade) => {
       if (upgrade.stat === 'weapon') return !this.state.arena.unlockedWeapons.includes(upgrade.weapon);
       if (upgrade.stat === 'special') return !this.state.arena.acquiredSpecials.has(upgrade.special);
+      if (upgrade.stat === 'enemySpeed') return !this.state.arena.acquiredSpecials.has(upgrade.name);
       return true;
     });
     this.state.arena.currentUpgrades = available.sort(() => Math.random() - 0.5).slice(0, 3);
@@ -287,9 +347,13 @@ const LastKnightGame = {
     const upgrade = this.state.arena.currentUpgrades[index];
     if (!upgrade) return;
     if (upgrade.stat === 'health' || upgrade.stat === 'shield') this.state.arena.stats[upgrade.stat] += upgrade.amount;
-    if (upgrade.stat === 'damage' || upgrade.stat === 'speed' || upgrade.stat === 'crit') this.state.arena.stats[upgrade.stat] += upgrade.amount;
+    if (upgrade.stat === 'damage' || upgrade.stat === 'speed' || upgrade.stat === 'crit' || upgrade.stat === 'meleeRange' || upgrade.stat === 'attackSpeed') this.state.arena.stats[upgrade.stat] += upgrade.amount;
+    if (upgrade.stat === 'enemySpeed') this.state.arena.enemySpeedMultiplier *= 1 - upgrade.amount;
     if (upgrade.stat === 'weapon' && !this.state.arena.unlockedWeapons.includes(upgrade.weapon)) this.state.arena.unlockedWeapons.push(upgrade.weapon);
     if (upgrade.stat === 'special') this.state.arena.acquiredSpecials.add(upgrade.special);
+    if (upgrade.stat === 'weapon') this.updateAchievement('weapons', this.state.arena.unlockedWeapons.length);
+    if (upgrade.stat === 'special') this.updateAchievement('specials', this.state.arena.acquiredSpecials.size);
+    if (upgrade.stat === 'enemySpeed') this.state.arena.acquiredSpecials.add(upgrade.name);
     this.state.arena.currentHealth = this.state.arena.stats.health;
     this.state.arena.currentShield = this.state.arena.stats.shield;
     this.renderStats();
@@ -298,6 +362,7 @@ const LastKnightGame = {
     upgradeCards.innerHTML = '';
     this.state.arena.paused = false;
     this.startWave(enemyLayer, projectileLayer);
+    this.renderSpecialSlots();
   },
 
   getWaveRoster(wave) {
@@ -335,14 +400,67 @@ const LastKnightGame = {
     const roster = this.getWaveRoster(this.state.arena.wave);
     this.state.arena.enemies = [];
     this.state.arena.waveCompleteQueued = false;
+    this.state.arena.pendingTypes = [...roster];
     this.state.arena.pendingEnemies = roster.length;
     enemyLayer.innerHTML = '';
     document.querySelector('#arena-enemies-left').textContent = `Enemies Left: ${roster.length}`;
-    roster.forEach((type, index) => {
-      const timer = setTimeout(() => this.spawnEnemy(type, enemyLayer), index * 650);
-      this.state.arena.spawnTimers.push(timer);
-    });
+    this.fillEnemySlots(enemyLayer);
+    this.schedulePotion();
     this.state.arena.enemyFrame = requestAnimationFrame(() => this.updateEnemies(enemyLayer, projectileLayer));
+  },
+
+  schedulePotion() {
+    clearTimeout(this.state.arena.potionTimer);
+    if (this.state.arena.gameOver || this.state.arena.paused) return;
+    const delay = (30 + Math.random() * 15) * 1000;
+    this.state.arena.potionTimer = setTimeout(() => this.spawnPotion(), delay);
+  },
+
+  spawnPotion() {
+    if (!this.state.arena.active || this.state.arena.paused || this.state.arena.gameOver) return;
+    const roll = Math.random();
+    const type = roll < 0.2 ? 'damage' : roll < 0.6 ? 'health' : 'speed';
+    const potion = document.createElement('button');
+    potion.className = `arena-potion arena-potion--${type}`;
+    potion.type = 'button';
+    potion.textContent = type === 'health' ? '♥' : type === 'speed' ? '⚡' : '✦';
+    potion.setAttribute('aria-label', `${type} potion`);
+    const x = 20 + Math.random() * 60;
+    const y = 25 + Math.random() * 45;
+    potion.style.left = `${x}%`;
+    potion.style.top = `${y}%`;
+    document.querySelector('#arena-potions').appendChild(potion);
+    this.state.arena.potion = { type, element: potion, x, y };
+  },
+
+  collectPotion(type) {
+    const arena = this.state.arena;
+    if (!arena.potion) return;
+    arena.potion.element.remove();
+    arena.potion = null;
+    if (type === 'health') arena.currentHealth = Math.min(arena.stats.health, arena.currentHealth + 20);
+    if (type === 'speed' || type === 'damage') {
+      const stat = type;
+      arena.stats[stat] *= 1.3;
+      const timer = setTimeout(() => { arena.stats[stat] /= 1.3; this.renderStats(); }, type === 'speed' ? 6000 : 8000);
+      arena.potionBuffTimers.push(timer);
+    }
+    this.renderStats();
+    this.schedulePotion();
+    this.updateAchievement('potions', this.state.arena.achievements.find((achievement) => achievement.type === 'potions').progress + 1);
+  },
+
+  checkPotionContact() {
+    const potion = this.state.arena.potion;
+    if (!potion) return;
+    if (Math.hypot(this.state.arena.x - potion.x, this.state.arena.y - potion.y) <= 5) this.collectPotion(potion.type);
+  },
+
+  fillEnemySlots(enemyLayer) {
+    while (this.state.arena.enemies.length < 10 && this.state.arena.pendingTypes.length) {
+      this.spawnEnemy(this.state.arena.pendingTypes.shift(), enemyLayer);
+    }
+    this.state.arena.pendingEnemies = this.state.arena.pendingTypes.length;
   },
 
   spawnEnemy(type, enemyLayer) {
@@ -381,8 +499,8 @@ const LastKnightGame = {
       const personalSpace = 9;
       if (distance > Math.max(enemy.range, personalSpace) && !this.state.arena.paused) {
         const step = 0.06 * enemy.speed;
-        enemy.x += (dx / distance) * step;
-        enemy.y += (dy / distance) * step;
+        enemy.x += (dx / distance) * step * player.enemySpeedMultiplier;
+        enemy.y += (dy / distance) * step * player.enemySpeedMultiplier;
       } else if (distance <= Math.max(enemy.range, personalSpace) && now >= enemy.nextAttack && !this.state.arena.paused) {
         enemy.nextAttack = now + enemy.cooldown;
         this.enemyAttack(enemy, projectileLayer);
@@ -392,8 +510,9 @@ const LastKnightGame = {
       enemy.element.style.transform = `translate(-50%, -50%) rotate(${this.getEnemyFacing(enemy)}deg)`;
     });
     this.resolveEnemySeparation();
+    this.fillEnemySlots(enemyLayer);
     document.querySelector('#arena-enemies-left').textContent = `Enemies Left: ${this.state.arena.enemies.length + this.state.arena.pendingEnemies}`;
-    if (this.state.arena.enemies.length === 0 && this.state.arena.pendingEnemies === 0 && !this.state.arena.waveCompleteQueued && !this.state.arena.paused) {
+    if (this.state.arena.enemies.length === 0 && this.state.arena.pendingTypes.length === 0 && !this.state.arena.waveCompleteQueued && !this.state.arena.paused) {
       this.state.arena.waveCompleteQueued = true;
       this.state.arena.wave += 1;
       this.restorePlayerVitals();
@@ -409,7 +528,8 @@ const LastKnightGame = {
   },
 
   enemyAttack(enemy, projectileLayer) {
-    const isRanged = enemy.attackType === 'ranged' || (enemy.attackType === 'mixed' && Math.random() > 0.5);
+    const distance = Math.hypot(this.state.arena.x - enemy.x, this.state.arena.y - enemy.y);
+    const isRanged = enemy.attackType === 'ranged' || (enemy.attackType === 'mixed' && distance > 9);
     enemy.element.classList.remove('is-attacking', 'is-firing');
     enemy.element.classList.remove('is-poking');
     if (!isRanged) {
@@ -428,11 +548,14 @@ const LastKnightGame = {
 
   spawnProjectile(layer, x, y, angle, asset, damage, target, fromPlayer) {
     const element = document.createElement('img');
-    element.className = 'arena-projectile';
+    element.className = `arena-projectile ${fromPlayer ? 'arena-projectile--player' : 'arena-projectile--enemy'}`;
     element.src = `Last Knight Assets/Projectile Models/${asset}`;
     element.alt = '';
+    element.style.left = `${x}%`;
+    element.style.top = `${y}%`;
+    element.style.transform = `translate(-50%, -50%) rotate(${angle * 180 / Math.PI}deg)`;
     layer.appendChild(element);
-    this.state.arena.projectiles.push({ element, x, y, angle, damage, target, bounces: 0, fromPlayer });
+    this.state.arena.projectiles.push({ element, x, y, angle, damage, weapon: fromPlayer ? damage : null, target, bounces: 0, fromPlayer });
     return element;
   },
 
@@ -446,7 +569,7 @@ const LastKnightGame = {
       const hitEnemy = projectile.fromPlayer && arena.enemies.find((enemy) => Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y) < 6);
       const hitPlayer = !projectile.fromPlayer && Math.hypot(arena.x - projectile.x, arena.y - projectile.y) < 5;
       if (hitEnemy) {
-        this.damageEnemy(hitEnemy, projectile.damage);
+        this.damageEnemy(hitEnemy, projectile.damage, projectile.weapon);
         projectile.element.remove();
         return;
       }
@@ -457,7 +580,7 @@ const LastKnightGame = {
       }
       const hitWall = projectile.x <= 15 || projectile.x >= 85 || projectile.y <= 20 || projectile.y >= 76;
       if (hitWall) {
-        if (arena.acquiredSpecials.has('bouncyProjectile') && projectile.bounces < 2) {
+        if (projectile.fromPlayer && arena.acquiredSpecials.has('bouncyProjectile') && projectile.bounces < 2) {
           if (projectile.x <= 15 || projectile.x >= 85) projectile.angle = Math.PI - projectile.angle;
           if (projectile.y <= 20 || projectile.y >= 76) projectile.angle = -projectile.angle;
           projectile.x = Math.max(15, Math.min(85, projectile.x));
@@ -488,6 +611,7 @@ const LastKnightGame = {
 
   applyPlayerDamage(amount) {
     const arena = this.state.arena;
+    if (arena.gameOver) return;
     let remaining = amount;
     if (arena.currentShield > 0) {
       const absorbed = Math.min(arena.currentShield, remaining);
@@ -497,6 +621,28 @@ const LastKnightGame = {
     arena.currentHealth = Math.max(0, arena.currentHealth - remaining);
     arena.lastDamageAt = performance.now();
     this.renderStats();
+    if (arena.currentHealth <= 0) this.showGameOver();
+  },
+
+  showGameOver() {
+    const arena = this.state.arena;
+    if (arena.gameOver) return;
+    arena.gameOver = true;
+    arena.paused = true;
+    const total = Math.floor(arena.runCoins * (1 + arena.wave * 0.1));
+    document.querySelector('#game-over-earned').textContent = `${arena.runCoins.toLocaleString()} Coins`;
+    document.querySelector('#game-over-wave').textContent = arena.wave;
+    document.querySelector('#game-over-total').textContent = `${total.toLocaleString()} Coins`;
+    const overlay = document.querySelector('#arena-game-over');
+    overlay.classList.add('is-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+  },
+
+  collectGameOverCoins() {
+    const arena = this.state.arena;
+    const total = Math.floor(arena.runCoins * (1 + arena.wave * 0.1));
+    this.addCoins(total);
+    arena.gameOver = false;
   },
 
   regenerateShield(now) {
@@ -533,6 +679,22 @@ const LastKnightGame = {
     this.renderPlayerVitals(document.querySelector('#arena-player-vitals'));
   },
 
+  renderShopOffers(shopOffers) {
+    const offers = [['$0.99', '2,000'], ['$2.99', '6,000'], ['$4.99', '10,000'], ['$9.99', '20,000'], ['$19.99', '40,000'], ['$29.99', '60,000']];
+    shopOffers.innerHTML = offers.map(([price, coins]) => `<article class="shop-offer"><div class="shop-offer-copy"><strong>${coins} Coins</strong><span>${price}</span></div><button type="button" disabled>Purchase</button></article>`).join('');
+  },
+
+  renderSpecialSlots() {
+    const icons = { bouncyProjectile: '↻', lifeSteal: '♥', fireTrail: '♨', precision: '✦', autoHealing: '+' };
+    document.querySelectorAll('.arena-special-slot').forEach((slot) => {
+      const unlocked = this.state.arena.acquiredSpecials.has(slot.dataset.special);
+      slot.disabled = !unlocked;
+      slot.classList.toggle('is-unlocked', unlocked);
+      slot.textContent = unlocked ? icons[slot.dataset.special] : '';
+      slot.setAttribute('aria-label', unlocked ? `Unlocked ${slot.dataset.special}` : 'Locked special upgrade');
+    });
+  },
+
   renderArenaHotbar(arenaHotbar) {
     const slots = [
       ['sword', 'Default Player Sword.png', '1'],
@@ -562,7 +724,7 @@ const LastKnightGame = {
     const weapon = weapons[arena.weapon] || weapons.sword;
     const now = performance.now();
     if (now < arena.nextAttackAt) return;
-    arena.nextAttackAt = now + weapon.cooldown;
+    arena.nextAttackAt = now + weapon.cooldown / arena.stats.attackSpeed;
     if (!weapon.projectile) this.renderPlayerAttack(attackVisual, weapon.effect);
     const facingRadians = this.state.arena.angle * Math.PI / 180;
     const targets = arena.enemies.filter((enemy) => {
@@ -571,7 +733,8 @@ const LastKnightGame = {
       const distance = Math.hypot(dx, dy);
       const angleToEnemy = Math.atan2(dy, dx);
       const angleDifference = Math.abs(Math.atan2(Math.sin(angleToEnemy - facingRadians), Math.cos(angleToEnemy - facingRadians))) * 180 / Math.PI;
-      return distance <= weapon.range && angleDifference <= weapon.arc / 2;
+      const range = weapon.effect === 'slashing' || weapon.effect === 'poking' ? weapon.range * arena.stats.meleeRange : weapon.range;
+      return distance <= range && angleDifference <= weapon.arc / 2;
     });
     if (weapon.projectile) {
       const target = targets[0]?.enemy;
@@ -587,7 +750,8 @@ const LastKnightGame = {
     this.spawnProjectile(projectileLayer, this.state.arena.x, this.state.arena.y, angle, weapon.projectile, weapon, target, true);
   },
 
-  damageEnemy(target, weapon) {
+  damageEnemy(target, weapon, projectileWeapon = null) {
+    if (projectileWeapon) weapon = projectileWeapon;
     const isCritical = Math.random() < this.state.arena.stats.crit;
     const damage = typeof weapon === 'number' ? weapon : (isCritical ? weapon.critical : weapon.base) * this.state.arena.stats.damage;
     this.state.arena.hitCount += 1;
@@ -595,10 +759,12 @@ const LastKnightGame = {
     target.currentHp -= precisionCrit && typeof weapon !== 'number' ? weapon.critical * this.state.arena.stats.damage : damage;
     const wasCritical = precisionCrit || (isCritical && typeof weapon !== 'number');
     if (wasCritical) this.showCritSpark(target);
+    if (wasCritical) this.updateAchievement('crits', 1);
     target.element.classList.add('is-hit');
     setTimeout(() => target.element.classList.remove('is-hit'), 140);
     if (target.currentHp <= 0) {
       this.addRunCoins(target.type);
+      this.updateAchievement('defeats', 1);
       if (this.state.arena.acquiredSpecials.has('lifeSteal')) this.state.arena.currentHealth = Math.min(this.state.arena.stats.health, this.state.arena.currentHealth + Math.max(1, Math.round(target.maxHp * 0.02)));
       target.element.classList.add('is-defeated');
       this.state.arena.enemies = this.state.arena.enemies.filter((enemy) => enemy !== target);
@@ -613,7 +779,24 @@ const LastKnightGame = {
     };
     const range = rewards[enemyType] || [0, 0];
     this.state.arena.runCoins += this.randomWholeNumber(range[0], range[1]);
+    this.updateAchievement('coins', this.state.arena.runCoins);
     this.renderRunCoins();
+  },
+
+  updateAchievement(type, value) {
+    this.state.arena.achievements.forEach((achievement) => {
+      if (achievement.type === type) achievement.progress = Math.max(achievement.progress, value);
+    });
+    this.renderAchievements(document.querySelector('#achievement-list'));
+  },
+
+  renderAchievements(list) {
+    if (!list) return;
+    list.innerHTML = this.state.arena.achievements.map((achievement) => {
+      const progress = Math.min(achievement.progress, achievement.goal);
+      const complete = progress >= achievement.goal;
+      return `<article class="achievement-row"><div class="achievement-copy"><strong>${achievement.name}</strong><small>${achievement.subtitle}</small></div><div class="achievement-progress"><span style="width:${(progress / achievement.goal) * 100}%"></span></div><span class="achievement-check">${complete ? '✓' : ''}</span></article>`;
+    }).join('');
   },
 
   renderRunCoins() {
@@ -663,6 +846,11 @@ const LastKnightGame = {
     arenaPlayer.style.left = `${this.state.arena.x}%`;
     arenaPlayer.style.top = `${this.state.arena.y}%`;
     arenaPlayer.style.transform = `translate(-50%, -50%) rotate(${this.getSpriteAngle(this.state.arena.angle)}deg)`;
+    const forcefield = document.querySelector('#arena-forcefield');
+    if (forcefield) {
+      forcefield.style.left = `${this.state.arena.x}%`;
+      forcefield.style.top = `${this.state.arena.y}%`;
+    }
     this.renderPlayerVitals(document.querySelector('#arena-player-vitals'));
   },
 
@@ -688,7 +876,7 @@ const LastKnightGame = {
     element.style.left = `${this.state.arena.x}%`;
     element.style.top = `${this.state.arena.y}%`;
     document.querySelector('#arena-controls').appendChild(element);
-    this.state.arena.fireTrails.push({ element, x: this.state.arena.x, y: this.state.arena.y, expires: performance.now() + 2200 });
+    this.state.arena.fireTrails.push({ element, x: this.state.arena.x, y: this.state.arena.y, expires: performance.now() + 3500, hitAt: new Map() });
   },
 
   updateFireTrails() {
@@ -699,8 +887,9 @@ const LastKnightGame = {
         return false;
       }
       this.state.arena.enemies.forEach((enemy) => {
-        if (Math.hypot(enemy.x - trail.x, enemy.y - trail.y) < 5) {
+        if (Math.hypot(enemy.x - trail.x, enemy.y - trail.y) < 5 && (trail.hitAt.get(enemy) || 0) <= now) {
           this.damageEnemy(enemy, { base: 0.15, critical: 0.15 });
+          trail.hitAt.set(enemy, now + 500);
         }
       });
       return true;

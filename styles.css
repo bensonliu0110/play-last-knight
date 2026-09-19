@@ -141,7 +141,7 @@ body {
 
 .coin-count {
   position: absolute;
-  top: 4%;
+  top: 3.8%;
   left: 50.5%;
   width: 7.6%;
   color: var(--bright-gold);
@@ -186,7 +186,7 @@ body {
 .menu-hit-area--playtime { right: 1.7%; top: 64%; width: 11.7%; height: 11.6%; }
 
 .menu-hit-area--coins {
-  left: 39.5%;
+  left: 39.8%;
   top: 1.6%;
   width: 5.3%;
   height: 7.05%;
@@ -245,6 +245,35 @@ body {
   inset: 0;
   display: none;
 }
+
+.shop-offers { position: absolute; inset: 0; display: none; z-index: 2; pointer-events: none; }
+.sub-screen-frame.is-shop .shop-offers { display: block; }
+.shop-offer { position: absolute; display: flex; align-items: center; justify-content: space-between; gap: 2%; width: 18%; height: 8.5%; color: var(--bright-gold); text-align: left; text-shadow: 0 2px 4px #000; }
+.shop-offer-copy { transform: translateX(28%); }
+.shop-offer button { transform: translateX(-28%); }
+
+.achievement-list { position: absolute; top: 19%; left: 22%; width: 56%; height: 65%; display: none; z-index: 2; }
+.sub-screen-frame.is-achievements .achievement-list { display: block; }
+.achievement-row { position: relative; width: 100%; height: 11%; color: var(--bright-gold); text-shadow: 0 2px 3px #000; }
+.achievement-copy { position: absolute; top: 50%; left: 3%; width: 48%; transform: translateY(-50%); }.achievement-copy strong { display: block; font-size: clamp(8px, 0.9vw, 12px); white-space: nowrap; }.achievement-copy small { display: block; margin-top: 2px; color: rgba(255, 225, 160, 0.85); font-size: clamp(7px, 0.72vw, 10px); white-space: nowrap; }
+.achievement-progress { height: 5px; overflow: hidden; border: 1px solid rgba(255, 218, 157, 0.65); border-radius: 999px; background: rgba(13, 11, 10, 0.8); }.achievement-progress span { display: block; height: 100%; background: linear-gradient(90deg, #a84b22, #ffe0a3); transition: width 250ms ease; }
+.achievement-check { flex: 0 0 7%; color: #9ee6a3; font-size: clamp(14px, 1.5vw, 22px); text-align: center; }
+.achievement-progress { position: absolute; top: 50%; left: 55%; width: 38%; height: 24%; border-color: rgba(255, 218, 157, 0.45); background: rgba(13, 11, 10, 0.55); transform: translateY(-50%); }
+.achievement-check { position: absolute; top: 50%; left: 95%; transform: translateY(-50%); }
+.sub-screen-frame.is-achievements .sub-screen-back { left: 2%; top: auto; bottom: 7%; width: 18%; height: 8%; z-index: 6; }
+.sub-screen-frame.is-achievements .sub-screen-back:hover,
+.sub-screen-frame.is-achievements .sub-screen-back:focus-visible { border-color: rgba(255, 218, 157, 0.95); background: rgba(255, 192, 105, 0.14); box-shadow: 0 0 22px rgba(235, 157, 71, 0.75); }
+.shop-offer:nth-child(1) { left: 20.4%; top: 62.8%; }
+.shop-offer:nth-child(2) { left: 40.7%; top: 62.8%; }
+.shop-offer:nth-child(3) { left: 61.2%; top: 62.8%; }
+.shop-offer:nth-child(4) { left: 20.4%; top: 73.2%; }
+.shop-offer:nth-child(5) { left: 40.7%; top: 73.2%; }
+.shop-offer:nth-child(6) { left: 61.2%; top: 73.2%; }
+.shop-offer strong { display: block; font-size: clamp(8px, 0.85vw, 12px); white-space: nowrap; }
+.shop-offer span { display: block; color: #fff0c8; font-size: clamp(8px, 0.75vw, 11px); }
+.shop-offer-copy { min-width: 0; }
+.shop-offer button { flex: 0 0 auto; padding: 3px 6px; border: 1px solid rgba(233, 185, 110, 0.75); border-radius: 999px; color: #1b1009; background: var(--gold); cursor: not-allowed; font: 700 clamp(6px, 0.6vw, 9px) 'Cinzel', Georgia, serif; text-transform: uppercase; pointer-events: auto; }
+.shop-offer button:hover { background: var(--bright-gold); box-shadow: 0 0 12px rgba(255, 218, 157, 0.8); }
 
 .sub-screen-frame.is-playtime .playtime-rewards { display: block; }
 
@@ -336,6 +365,14 @@ body {
   box-shadow: none;
 }
 
+.sub-screen-frame.is-shop .sub-screen-back {
+  z-index: 6;
+  left: 1%;
+  bottom: 1%;
+  width: 20%;
+  height: 10%;
+}
+
 .arena-controls {
   position: absolute;
   inset: 0;
@@ -375,6 +412,7 @@ body {
   user-select: none;
 }
 
+
 .arena-player-attack {
   position: absolute;
   z-index: 3;
@@ -392,6 +430,7 @@ body {
 .arena-player-attack.is-punching::after { position: absolute; top: 30%; right: -12%; width: 32%; height: 32%; border-radius: 50%; background: rgba(255, 224, 163, 0.9); box-shadow: 0 0 12px rgba(255, 180, 80, 0.8); content: ''; }
 .arena-player-attack.is-slashing::after { position: absolute; top: 5%; right: -35%; width: 120%; height: 85%; border: 3px solid rgba(255, 224, 163, 0.95); border-top-color: transparent; border-left-color: transparent; border-radius: 50%; content: ''; transform: rotate(-25deg); }
 .arena-player-attack.is-poking::after { position: absolute; top: 43%; right: -55%; width: 70%; height: 5%; border-radius: 999px; background: linear-gradient(90deg, rgba(255, 224, 163, 0.3), rgba(255, 224, 163, 0.95)); box-shadow: 0 0 10px rgba(255, 180, 80, 0.8); content: ''; }
+.arena-player-attack.is-poking::before { position: absolute; top: 36%; right: -62%; width: 78%; height: 16%; border: 2px solid rgba(255, 224, 163, 0.9); border-left: 0; border-radius: 0 50% 50% 0; content: ''; }
 .arena-player-attack.is-shooting::after { position: absolute; top: 46%; right: -25%; width: 55%; height: 3%; border-radius: 999px; background: rgba(255, 224, 163, 0.9); box-shadow: 0 0 8px rgba(255, 180, 80, 0.7); content: ''; }
 
 .arena-player-vitals {
@@ -431,23 +470,25 @@ body {
 
 .arena-projectile {
   position: absolute;
-  width: 3.2%;
+  z-index: 8;
+  width: 4.2%;
   aspect-ratio: 577 / 432;
   object-fit: contain;
   transform: translate(-50%, -50%);
-  transition: left 420ms linear, top 420ms linear;
+  transition: none;
+  will-change: left, top;
 }
 
 .sub-screen-frame .arena-projectile {
-  width: 3.2% !important;
+  width: 4.2% !important;
   height: auto !important;
 }
 
 .arena-crit-spark {
   position: absolute;
   z-index: 4;
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
   transform: translate(-50%, -50%);
   pointer-events: none;
   animation: crit-spark 260ms ease-out forwards;
@@ -467,12 +508,12 @@ body {
 
 .arena-fire-trail {
   position: absolute;
-  z-index: 1;
-  width: 12px;
-  height: 12px;
-  border-radius: 50% 50% 35% 35%;
-  background: radial-gradient(circle at 50% 70%, #ffe0a3 0 18%, #e27736 42%, #7e2819 72%, transparent 73%);
-  box-shadow: 0 0 12px rgba(226, 119, 54, 0.85);
+  z-index: 0;
+  width: 18px;
+  height: 26px;
+  border-radius: 50% 50% 45% 45%;
+  background: radial-gradient(ellipse at 50% 78%, #fff0c8 0 12%, #ffb347 28%, #d64d24 55%, #6c2419 75%, transparent 76%);
+  box-shadow: 0 0 14px rgba(214, 77, 36, 0.9), 0 0 5px rgba(255, 224, 163, 0.8);
   transform: translate(-50%, -50%);
   animation: fire-trail 2.2s ease-out forwards;
   pointer-events: none;
@@ -687,6 +728,45 @@ body {
   transform: rotate(45deg);
 }
 
+.arena-special-slot.is-unlocked { color: var(--bright-gold); border-color: var(--bright-gold); box-shadow: inset 0 0 0 2px rgba(56, 26, 15, 0.8), 0 0 14px rgba(255, 218, 157, 0.75); }
+.arena-special-slot { font-size: 18px; line-height: 1; }
+.arena-special-slot[data-special="lifeSteal"].is-unlocked { color: #e56b62; }
+.arena-special-slot[data-special="precision"].is-unlocked { color: #ffe0a3; }
+.arena-special-slot[data-special="autoHealing"].is-unlocked { color: #8dd3dc; }
+.arena-special-slot[data-special="fireTrail"].is-unlocked { color: #e27736; }
+.arena-special-slot[data-special="bouncyProjectile"].is-unlocked { color: #b89cff; }
+
+.arena-potions { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.arena-potion { position: absolute; width: 34px; height: 34px; border: 1px solid var(--bright-gold); border-radius: 50%; color: #fff0c8; background: rgba(13, 11, 10, 0.88); box-shadow: 0 0 14px currentColor; cursor: pointer; font-size: 20px; pointer-events: auto; transform: translate(-50%, -50%); animation: potion-pulse 1.4s ease-in-out infinite; }
+.arena-potion--health { color: #e27736; }
+.arena-potion--speed { color: #8dd3dc; }
+.arena-potion--damage { color: #ffe0a3; }
+@keyframes potion-pulse { 50% { scale: 1.08; } }
+
+.arena-game-over {
+  position: absolute;
+  z-index: 7;
+  top: 50%;
+  left: 50%;
+  display: none;
+  width: min(360px, 62%);
+  padding: 24px 28px;
+  border: 1px solid rgba(233, 185, 110, 0.85);
+  border-radius: 8px;
+  color: var(--bright-gold);
+  background: rgba(13, 11, 10, 0.95);
+  box-shadow: 0 0 0 2px rgba(56, 26, 15, 0.85), 0 0 30px rgba(235, 157, 71, 0.45);
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.arena-game-over.is-visible { display: block; }
+.arena-game-over h2 { margin: 0 0 18px; color: #fff0c8; font-size: clamp(22px, 3vw, 34px); text-transform: uppercase; }
+.arena-game-over p { display: flex; justify-content: space-between; gap: 18px; margin: 10px 0; color: rgba(255, 225, 160, 0.9); font-size: clamp(11px, 1.1vw, 15px); }
+.arena-game-over strong { color: #fff0c8; }
+.arena-game-over button { margin-top: 16px; padding: 10px 16px; border: 1px solid var(--gold); border-radius: 5px; color: #1b1009; background: var(--gold); cursor: pointer; font: 700 11px 'Cinzel', Georgia, serif; text-transform: uppercase; }
+.arena-game-over button:hover { background: var(--bright-gold); box-shadow: 0 0 14px rgba(255, 218, 157, 0.7); }
+
 .special-lock-icon {
   position: relative;
   display: block;
@@ -719,6 +799,11 @@ body {
   box-shadow: inset 0 0 0 2px rgba(30, 16, 9, 0.45);
   content: '';
 }
+
+/* Keep shop text and controls inside the six baked Buy Coins frames. */
+.sub-screen-frame.is-shop .shop-offers { pointer-events: none; }
+.sub-screen-frame.is-shop .shop-offer button { pointer-events: auto; }
+.sub-screen-frame.is-shop .sub-screen-back { left: 2%; bottom: 4%; width: 18%; height: 8%; }
 
 .arena-stats h2 { margin: 0 0 8%; color: var(--gold); font-size: clamp(10px, 1.1vw, 15px); letter-spacing: 0.12em; text-align: center; text-transform: uppercase; }
 .arena-stats div { display: flex; justify-content: space-between; gap: 8px; margin-top: 5%; font-size: clamp(9px, 0.95vw, 13px); }
