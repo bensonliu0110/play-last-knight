@@ -30,6 +30,7 @@ function finishLoading() {
   loadingScreen.classList.add('is-complete');
   mainScreen.setAttribute('aria-hidden', 'false');
   window.LastKnightGame.startPlayTimeTracking();
+  window.LastKnightGame.initializeAuth();
   window.dispatchEvent(new CustomEvent('last-knight-main-ready'));
 }
 

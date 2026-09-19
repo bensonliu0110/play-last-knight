@@ -8,6 +8,20 @@
   </head>
   <body>
     <main class="game-shell" aria-label="Last Knight">
+      <section class="auth-modal" id="auth-modal" aria-label="Last Knight account" aria-hidden="true">
+        <div class="auth-card">
+          <h2>Enter Last Knight</h2>
+          <p class="auth-subtitle">Use a username and password to keep your progress.</p>
+          <input id="auth-username" type="text" placeholder="Username" autocomplete="username" maxlength="24" />
+          <input id="auth-password" type="password" placeholder="Password" autocomplete="current-password" minlength="6" />
+          <p class="auth-status" id="auth-status" aria-live="polite"></p>
+          <div class="auth-actions">
+            <button id="auth-login" type="button">Log In</button>
+            <button id="auth-signup" type="button">Sign Up</button>
+          </div>
+          <button class="auth-guest" id="auth-guest" type="button">Play as Guest</button>
+        </div>
+      </section>
       <section class="loading-screen" id="loading-screen" aria-live="polite">
         <div class="loading-art" aria-hidden="true"></div>
         <div class="loading-ui">
@@ -44,6 +58,13 @@
           <div class="playtime-rewards" id="playtime-rewards" aria-label="Play time rewards"></div>
           <div class="shop-offers" id="shop-offers" aria-label="Coin offers"></div>
           <div class="achievement-list" id="achievement-list" aria-label="Achievements"></div>
+          <div class="skills-tree" id="skills-tree" aria-label="Skills"></div>
+          <div class="stats-overview" id="stats-overview" aria-label="Stats overview"></div>
+          <div class="settings-panel" id="settings-panel" aria-label="Settings">
+            <div class="settings-volume-row"><input id="music-volume" type="range" min="0" max="100" value="70" aria-label="Music volume"><output id="music-volume-value">70%</output></div>
+            <div class="settings-code-row"><input id="redeem-code" type="text" placeholder="Enter redeem code" aria-label="Redeem code"><button id="redeem-code-button" type="button">Redeem</button></div>
+            <p id="redeem-code-status" aria-live="polite"></p>
+          </div>
           <div class="arena-controls" id="arena-controls" aria-label="Arena controls">
             <div class="arena-enemies" id="arena-enemies" aria-label="Enemies"></div>
             <div class="arena-projectiles" id="arena-projectiles" aria-label="Projectiles"></div>
@@ -98,6 +119,13 @@
       <div class="screen-flash" id="screen-flash" aria-hidden="true"></div>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      window.__SUPABASE_CONFIG = {
+        url: 'https://gruymamytbmrmgpujips.supabase.co',
+        anonKey: 'sb_publishable_pJzUzxT55jN8C6amsgVkhQ_eTjAk5JC'
+      };
+    </script>
     <script src="game.js"></script>
     <script src="loading-screen.js"></script>
   </body>
