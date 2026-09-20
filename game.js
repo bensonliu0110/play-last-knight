@@ -266,7 +266,6 @@ const LastKnightGame = {
       ownedSkins: [...this.state.ownedSkins],
       equippedSkin: this.state.equippedSkin,
       lifetime: { ...this.state.lifetime },
-      rewards: this.state.rewards.map((reward) => ({ ...reward })),
       achievements: this.state.arena.achievements.map((achievement) => ({ ...achievement })),
       dailyQuests: this.state.dailyQuests,
     };
@@ -286,7 +285,6 @@ const LastKnightGame = {
       this.state.ownedSkins = [...(saved.ownedSkins || [])];
       this.state.equippedSkin = saved.equippedSkin || null;
       this.state.lifetime = { ...this.state.lifetime, ...(saved.lifetime || {}) };
-      this.state.rewards = this.state.rewards.map((reward, index) => ({ ...reward, ...(saved.rewards?.[index] || {}) }));
       this.state.arena.achievements = this.state.arena.achievements.map((achievement, index) => ({ ...achievement, ...(saved.achievements?.[index] || {}) }));
       this.renderCoins();
     }
@@ -294,6 +292,7 @@ const LastKnightGame = {
     this.renderAchievements(document.querySelector('#achievement-list'));
     this.state.dailyQuests = saved?.dailyQuests || this.state.dailyQuests;
     this.ensureDailyQuests();
+    this.resetPlaySessionRewards();
     this.renderDailyQuests();
     await this.saveProgress(username);
   },
@@ -426,6 +425,7 @@ const LastKnightGame = {
   },
 
   startPlayTimeTracking() {
+    this.resetPlaySessionRewards();
     this.state.playTimeStartedAt = Date.now();
     clearInterval(this.state.rewardTimer);
     this.state.rewardTimer = setInterval(() => {
@@ -436,6 +436,10 @@ const LastKnightGame = {
       this.saveProgress();
     }, 1000);
     this.renderRewards();
+  },
+
+  resetPlaySessionRewards() {
+    this.state.rewards = this.state.rewards.map((reward) => ({ ...reward, claimed: false }));
   },
 
   renderCoins() {
