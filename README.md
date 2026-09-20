@@ -8,7 +8,7 @@ There is no end to this game, only stronger players!
 
 # 👤 Team
 
-**Benson Liu**
+**Benson Liu** | 
 Email: bel201@pitt.edu
 
 **Team Size:** 1
@@ -223,5 +223,5 @@ Sound effects were sourced from Pixabay.
 
 # 🏰 SteelHacks XIII
 
-Built for **SteelHacks XIII** at the University of Pittsburgh .
+Built for **SteelHacks XIII** at the University of Pittsburgh.
 **September 19-20, 2026**
