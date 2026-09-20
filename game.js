@@ -833,7 +833,10 @@ const LastKnightGame = {
     arena.potion.element.remove();
     arena.potion = null;
     try {
-      if (type === 'health') arena.currentHealth = Math.min(arena.stats.health, arena.currentHealth + 20);
+      if (type === 'health') {
+        const healing = Math.max(20, Math.ceil(arena.stats.health * 0.2));
+        arena.currentHealth = Math.min(arena.stats.health, arena.currentHealth + healing);
+      }
       if (type === 'speed' || type === 'damage') {
         const stat = type;
         arena.stats[stat] *= 1.3;
