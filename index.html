@@ -57,12 +57,31 @@
           <img id="sub-screen-image" src="" alt="" />
           <div class="playtime-rewards" id="playtime-rewards" aria-label="Play time rewards"></div>
           <div class="shop-offers" id="shop-offers" aria-label="Coin offers"></div>
+          <p class="payment-note" aria-label="Manual payment instructions">Note: Please include your username with the PayPal payment.<br>Coins are credited manually after payment is verified.</p>
           <div class="achievement-list" id="achievement-list" aria-label="Achievements"></div>
           <div class="skills-tree" id="skills-tree" aria-label="Skills"></div>
           <div class="stats-overview" id="stats-overview" aria-label="Stats overview"></div>
+          <section class="daily-quests" id="daily-quests" aria-label="Daily quests">
+            <div class="daily-quest-list" id="daily-quest-list"></div>
+            <button class="daily-quest-claim" id="daily-quest-claim" type="button" disabled>Claim Reward</button>
+            <p class="daily-quest-refresh" id="daily-quest-refresh" aria-live="polite"></p>
+          </section>
+          <div class="skin-offers" id="skin-offers" aria-label="Character skins"></div>
+          <p class="skin-note" aria-label="Skin instructions">Customize your knight with unique skins that follow you into every battle.</p>
+          <section class="leaderboard" id="leaderboard" aria-label="Leaderboard">
+            <div class="leaderboard-tabs" role="tablist" aria-label="Leaderboard category">
+              <button class="leaderboard-tab is-selected" type="button" role="tab" aria-selected="true" data-leaderboard-type="waves">Waves</button>
+              <button class="leaderboard-tab" type="button" role="tab" aria-selected="false" data-leaderboard-type="coins">Coins</button>
+              <button class="leaderboard-tab" type="button" role="tab" aria-selected="false" data-leaderboard-type="playTime">Time Played</button>
+            </div>
+            <div class="leaderboard-table" role="table" aria-label="Top ten players">
+              <div class="leaderboard-header" role="row"><span>Rank</span><span>Username</span><span>Value</span></div>
+              <div class="leaderboard-rows" id="leaderboard-rows"></div>
+            </div>
+          </section>
           <div class="settings-panel" id="settings-panel" aria-label="Settings">
-            <div class="settings-volume-row"><input id="music-volume" type="range" min="0" max="100" value="70" aria-label="Music volume"><output id="music-volume-value">70%</output></div>
-            <div class="settings-code-row"><input id="redeem-code" type="text" placeholder="Enter redeem code" aria-label="Redeem code"><button id="redeem-code-button" type="button">Redeem</button></div>
+            <div class="settings-volume-row"><input id="music-volume" type="range" min="0" max="100" value="50" aria-label="Music volume"><output id="music-volume-value">50%</output></div>
+            <div class="settings-code-row"><input id="redeem-code" type="text" placeholder="Enter here" aria-label="Redeem code"><button id="redeem-code-button" type="button">Redeem</button></div>
             <p id="redeem-code-status" aria-live="polite"></p>
           </div>
           <div class="arena-controls" id="arena-controls" aria-label="Arena controls">

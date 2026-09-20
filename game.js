@@ -1,6 +1,75 @@
 const LastKnightGame = {
+  audio: {
+    volume: 0.5,
+    currentMusic: null,
+    currentMusicType: null,
+    lastTracks: { main: null, arena: null },
+    pools: {
+      main: ['Knights & Maidens.mp3', 'Silverdawn Village.mp3', 'The Royal Lands.mp3'],
+      arena: ['Knights of Blackhall.mp3', 'Riverbard Tavern.mp3', "The Old Cobbler's Inn.mp3"],
+    },
+  },
+
+  startMusic(type) {
+    const pool = this.audio.pools[type];
+    if (!pool) return;
+    if (this.audio.currentMusicType === type && this.audio.currentMusic) return;
+    this.stopMusic();
+    const available = pool.filter((track) => track !== this.audio.lastTracks[type]);
+    const track = available[Math.floor(Math.random() * available.length)] || pool[0];
+    const music = new Audio(`Last Knight Assets/Game Music/${type === 'main' ? 'Main Screen Music' : 'Arena Music'}/${track}`);
+    music.volume = this.audio.volume;
+    music.addEventListener('ended', () => {
+      if (this.audio.currentMusic !== music) return;
+      this.audio.currentMusic = null;
+      setTimeout(() => {
+        if (this.audio.currentMusicType === type) this.startMusic(type);
+      }, 900);
+    });
+    this.audio.currentMusic = music;
+    this.audio.currentMusicType = type;
+    this.audio.lastTracks[type] = track;
+    const play = () => music.play().catch(() => {
+      const resume = () => music.play().catch(() => {});
+      window.addEventListener('pointerdown', resume, { once: true });
+      window.addEventListener('keydown', resume, { once: true });
+    });
+    setTimeout(() => {
+      if (this.audio.currentMusic === music) play();
+    }, 700);
+  },
+
+  stopMusic() {
+    if (!this.audio.currentMusic) return;
+    this.audio.currentMusic.pause();
+    this.audio.currentMusic.currentTime = 0;
+    this.audio.currentMusic = null;
+    this.audio.currentMusicType = null;
+  },
+
+  setAudioVolume(value) {
+    this.audio.volume = Math.max(0, Math.min(1, Number(value) / 100));
+    this.state.musicVolume = this.audio.volume;
+    if (this.audio.currentMusic) this.audio.currentMusic.volume = this.audio.volume;
+  },
+
+  playSoundEffect(type) {
+    const files = {
+      click: 'Click Sound Effect.mp3',
+      sword: 'Sword Sound Effect.mp3',
+      dagger: 'Dagger Sound Effect.mp3',
+      projectile: 'Projectile Sound Effect.mp3',
+    };
+    if (!files[type]) return;
+    const sound = new Audio(`Last Knight Assets/Sound Effects/${files[type]}`);
+    sound.volume = this.audio.volume;
+    sound.play().catch(() => {});
+  },
+
   state: {
     coins: 0,
+    musicVolume: 0.5,
+    redeemedCodes: [],
     playTimeStartedAt: null,
     rewardTimer: null,
     arena: {
@@ -16,6 +85,7 @@ const LastKnightGame = {
       projectiles: [],
       projectileTimer: null,
       fireTrails: [],
+      fireTrailLastAt: 0,
       hitCount: 0,
       achievements: [
         { name: "Foeman's Fall", subtitle: 'Defeat a total of 50 enemies across all runs.', icon: 'achievement-foemans-fall.svg', progress: 0, goal: 50, type: 'defeats' },
@@ -24,7 +94,7 @@ const LastKnightGame = {
         { name: 'High Knight of the Realm', subtitle: 'Reach Wave 15.', icon: 'crown', progress: 0, goal: 15, type: 'wave' },
         { name: 'Royal Garb', subtitle: 'Purchase any character skin from the shop.', icon: 'helm', progress: 0, goal: 1, type: 'skin' },
         { name: 'The Long Siege', subtitle: 'Accumulate 1 hour of actual gameplay time.', icon: 'hourglass', progress: 0, goal: 3600, type: 'time' },
-        { name: 'Daily Tribute', subtitle: 'Complete a full set of 3 Daily Quests.', icon: 'sun', progress: 0, goal: 3, type: 'quests' },
+        { name: 'Daily Tribute', subtitle: 'Complete a full set of 3 Daily Quests.', icon: 'sun', progress: 0, goal: 1, type: 'quests' },
         { name: "King's Treasury", subtitle: 'Earn a total of 15,000 Coins across your lifetime play.', icon: 'treasury', progress: 0, goal: 15000, type: 'lifetimeCoins' },
       ],
       blocking: false,
@@ -45,6 +115,8 @@ const LastKnightGame = {
       currentShield: 25,
       lastDamageAt: 0,
       nextAttackAt: 0,
+      noCooldownUntil: 0,
+      immuneUntil: 0,
       upgrades: [
         { name: '+50% Max Health', stat: 'health', amount: 50 },
         { name: '+25% Max Health', stat: 'health', amount: 25 },
@@ -77,6 +149,7 @@ const LastKnightGame = {
       waveCompleteQueued: false,
     },
     skills: { health: 0, shield: 0, damage: 0, speed: 0 },
+    ownedSkins: [],
     lifetime: { coins: 0, enemies: 0, highestWave: 1, playSeconds: 0 },
     rewards: [
       { minutes: 1, coins: 100, claimed: false },
@@ -87,10 +160,10 @@ const LastKnightGame = {
       { minutes: 45, coins: 3800, claimed: false },
       { minutes: 60, coins: 6000, claimed: false },
     ],
+    dailyQuests: null,
   },
 
   start() {
-    this.renderCoins();
     window.dispatchEvent(new CustomEvent('last-knight-ready'));
   },
 
@@ -108,15 +181,16 @@ const LastKnightGame = {
       : null;
     this.authClient = client;
     this.authUser = null;
-    localStorage.removeItem('last-knight-account');
+    this.authUsername = null;
+    this.ensureDailyQuests();
 
     const close = () => {
       modal.classList.remove('is-visible');
       modal.setAttribute('aria-hidden', 'true');
     };
     const normalizeUsername = () => username.value.trim().toLowerCase();
-    const getAuthEmail = (value) => `${value}@users.last-knight.game`;
     const isValidUsername = (value) => /^[a-z0-9_]{3,24}$/.test(value);
+    const getAuthEmail = (value) => `${value}@lastknightgame.com`;
 
     const open = () => {
       modal.classList.add('is-visible');
@@ -125,7 +199,7 @@ const LastKnightGame = {
 
     const authenticate = async (mode) => {
       if (!client) {
-        status.textContent = 'Supabase is not configured.';
+        status.textContent = 'Online login is not configured.';
         return;
       }
       const value = normalizeUsername();
@@ -147,7 +221,7 @@ const LastKnightGame = {
           ? await client.auth.signUp({ ...credentials, options: { data: { username: value } } })
           : await client.auth.signInWithPassword(credentials);
       } catch (error) {
-        status.textContent = 'Unable to reach Supabase. Check your connection.';
+        status.textContent = 'Unable to reach the online account service.';
         login.disabled = false;
         signup.disabled = false;
         return;
@@ -158,13 +232,14 @@ const LastKnightGame = {
         signup.disabled = false;
         return;
       }
-      this.authUser = result.data.user;
       if (mode === 'signup' && !result.data.session) {
-        status.textContent = 'Account created. Disable email confirmation in Supabase, then sign in.';
+        status.textContent = 'Account created. Confirm your email, then log in.';
         login.disabled = false;
         signup.disabled = false;
         return;
       }
+      this.authUser = result.data.user;
+      this.authUsername = value;
       await this.loadProgress(value);
       close();
     };
@@ -173,31 +248,27 @@ const LastKnightGame = {
     signup.onclick = () => authenticate('signup');
     guest.onclick = close;
 
-    if (client) {
-      client.auth.getSession().then(async ({ data }) => {
-        if (!data.session) {
-          open();
-          return;
-        }
-        this.authUser = data.session.user;
-        await this.loadProgress(this.authUser.user_metadata?.username);
-        close();
-      }).catch(() => {
-        status.textContent = 'Unable to reach Supabase. Check your connection.';
-        open();
-      });
-    } else {
+    if (!client) {
+      status.textContent = 'Online login is not configured.';
       open();
+      return;
     }
+    client.auth.signOut().catch(() => {});
+    open();
   },
 
   getPersistentState() {
     return {
       coins: this.state.coins,
+      musicVolume: this.state.musicVolume,
+      redeemedCodes: [...this.state.redeemedCodes],
       skills: { ...this.state.skills },
+      ownedSkins: [...this.state.ownedSkins],
+      equippedSkin: this.state.equippedSkin,
       lifetime: { ...this.state.lifetime },
       rewards: this.state.rewards.map((reward) => ({ ...reward })),
       achievements: this.state.arena.achievements.map((achievement) => ({ ...achievement })),
+      dailyQuests: this.state.dailyQuests,
     };
   },
 
@@ -208,20 +279,134 @@ const LastKnightGame = {
     const saved = data?.game_state;
     if (saved) {
       this.state.coins = Number(saved.coins) || 0;
+      this.state.musicVolume = Number.isFinite(Number(saved.musicVolume)) ? Math.max(0, Math.min(1, Number(saved.musicVolume))) : 0.5;
+      this.audio.volume = this.state.musicVolume;
+      this.state.redeemedCodes = [...(saved.redeemedCodes || [])];
       this.state.skills = { ...this.state.skills, ...(saved.skills || {}) };
+      this.state.ownedSkins = [...(saved.ownedSkins || [])];
+      this.state.equippedSkin = saved.equippedSkin || null;
       this.state.lifetime = { ...this.state.lifetime, ...(saved.lifetime || {}) };
       this.state.rewards = this.state.rewards.map((reward, index) => ({ ...reward, ...(saved.rewards?.[index] || {}) }));
       this.state.arena.achievements = this.state.arena.achievements.map((achievement, index) => ({ ...achievement, ...(saved.achievements?.[index] || {}) }));
       this.renderCoins();
-    } else {
-      await this.saveProgress(username);
     }
+    this.syncAchievementsFromStats();
+    this.renderAchievements(document.querySelector('#achievement-list'));
+    this.state.dailyQuests = saved?.dailyQuests || this.state.dailyQuests;
+    this.ensureDailyQuests();
+    this.renderDailyQuests();
+    await this.saveProgress(username);
   },
 
   async saveProgress(username = null) {
+    this.syncAchievementsFromStats();
     if (!this.authClient || !this.authUser) return;
-    const profile = { id: this.authUser.id, username: username || this.authUser.user_metadata?.username || this.authUser.email?.split('@')[0], game_state: this.getPersistentState(), updated_at: new Date().toISOString() };
-    await this.authClient.from('profiles').upsert(profile);
+    const accountName = username || this.authUsername || this.authUser.user_metadata?.username;
+    const gameState = this.getPersistentState();
+    await this.authClient.from('profiles').upsert({
+      id: this.authUser.id,
+      username: accountName,
+      game_state: gameState,
+      updated_at: new Date().toISOString(),
+    });
+    await this.authClient.from('leaderboard_scores').upsert({
+      user_id: this.authUser.id,
+      username: accountName,
+      highest_wave: this.state.lifetime.highestWave,
+      lifetime_coins: this.state.lifetime.coins,
+      play_seconds: this.state.lifetime.playSeconds,
+      updated_at: new Date().toISOString(),
+    });
+  },
+
+  getDailyQuestPool() {
+    return [
+      ...[3, 4, 5, 6, 7, 8, 9, 10].map((goal) => ({ label: `Reach Wave ${goal}`, category: 'wave', goal })),
+      ...[5, 10, 15, 20].map((goal) => ({ label: `Kill ${goal} Enemies`, category: 'kills', goal })),
+      ...[5, 10].map((goal) => ({ label: `Play For ${goal} Minutes`, category: 'play', goal: goal * 60 })),
+      ...[1, 2, 3].map((goal) => ({ label: `Complete ${goal} Full Run${goal === 1 ? '' : 's'}`, category: 'runs', goal })),
+      { label: 'Defeat The Boss', category: 'boss', goal: 1 },
+      ...[100, 300, 500].map((goal) => ({ label: `Collect ${goal} Coins`, category: 'coins', goal })),
+    ];
+  },
+
+  ensureDailyQuests() {
+    const quests = this.state.dailyQuests;
+    if (quests && quests.expiresAt > Date.now() && quests.items?.length === 3) return;
+    const pool = this.getDailyQuestPool();
+    const categories = [...new Set(pool.map((quest) => quest.category))];
+    const selectedCategories = [];
+    while (selectedCategories.length < 3) {
+      const category = categories[this.randomWholeNumber(0, categories.length - 1)];
+      if (!selectedCategories.includes(category)) selectedCategories.push(category);
+    }
+    this.state.dailyQuests = {
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      claimed: false,
+      items: selectedCategories.map((category) => {
+        const options = pool.filter((quest) => quest.category === category);
+        const quest = options[this.randomWholeNumber(0, options.length - 1)];
+        return { ...quest, progress: 0 };
+      }),
+    };
+    this.saveProgress();
+  },
+
+  updateDailyQuest(category, amount, mode = 'add') {
+    this.ensureDailyQuests();
+    this.state.dailyQuests.items.forEach((quest) => {
+      if (quest.category !== category) return;
+      quest.progress = mode === 'max'
+        ? Math.max(quest.progress, amount)
+        : Math.min(quest.goal, quest.progress + amount);
+    });
+    this.renderDailyQuests();
+  },
+
+  areDailyQuestsComplete() {
+    return this.state.dailyQuests?.items?.every((quest) => quest.progress >= quest.goal) && !this.state.dailyQuests.claimed;
+  },
+
+  claimDailyQuestReward() {
+    if (!this.areDailyQuestsComplete()) return;
+    this.state.dailyQuests.claimed = true;
+    this.addCoins(this.randomWholeNumber(1000, 1500));
+    this.updateAchievement('quests', 1);
+    this.renderDailyQuests();
+    this.saveProgress();
+  },
+
+  formatQuestCountdown(milliseconds) {
+    const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  },
+
+  renderDailyQuests() {
+    const list = document.querySelector('#daily-quest-list');
+    const refresh = document.querySelector('#daily-quest-refresh');
+    const claim = document.querySelector('#daily-quest-claim');
+    if (!list || !refresh || !claim) return;
+    this.ensureDailyQuests();
+    const quests = this.state.dailyQuests;
+    list.innerHTML = quests.items.map((quest) => {
+      const progress = Math.min(quest.progress, quest.goal);
+      const percentage = Math.min(100, (progress / quest.goal) * 100);
+      const complete = progress >= quest.goal;
+      const value = quest.category === 'play'
+        ? `${Math.floor(progress / 60)} / ${Math.floor(quest.goal / 60)} min`
+        : `${progress} / ${quest.goal}`;
+      return `<article class="daily-quest${complete ? ' is-complete' : ''}">
+        <strong>${quest.label}</strong>
+        <div class="daily-quest-progress"><span style="width: ${percentage}%"></span></div>
+        <small>${value}</small><b aria-label="${complete ? 'Complete' : 'Incomplete'}">${complete ? '&#10003;' : ''}</b>
+      </article>`;
+    }).join('');
+    claim.disabled = !this.areDailyQuestsComplete();
+    claim.textContent = quests.claimed ? 'Reward Claimed' : 'Claim Reward';
+    refresh.textContent = `Daily Quests refreshes in ${this.formatQuestCountdown(quests.expiresAt - Date.now())}`;
   },
 
   getCoins() {
@@ -246,6 +431,7 @@ const LastKnightGame = {
     this.state.rewardTimer = setInterval(() => {
       this.renderRewards();
       this.state.lifetime.playSeconds += 1;
+      this.updateDailyQuest('play', 1);
       this.renderStatsOverview(document.querySelector('#stats-overview'));
       this.saveProgress();
     }, 1000);
@@ -267,6 +453,9 @@ const LastKnightGame = {
     const subScreenFrame = document.querySelector('.sub-screen-frame');
     const rewardsPanel = document.querySelector('#playtime-rewards');
     const shopOffers = document.querySelector('#shop-offers');
+    const skinOffers = document.querySelector('#skin-offers');
+    const leaderboardRows = document.querySelector('#leaderboard-rows');
+    const leaderboardTabs = document.querySelectorAll('.leaderboard-tab');
     const achievementList = document.querySelector('#achievement-list');
     const settingsPanel = document.querySelector('#settings-panel');
     const arenaControls = document.querySelector('#arena-controls');
@@ -281,10 +470,16 @@ const LastKnightGame = {
     const statsPanel = document.querySelector('#arena-stats');
     const statsToggle = document.querySelector('#arena-stats-toggle');
     const statsClose = document.querySelector('#arena-stats-close');
+    const dailyQuestClaim = document.querySelector('#daily-quest-claim');
     const gameOver = document.querySelector('#arena-game-over');
     const gameOverBack = document.querySelector('#game-over-back');
     const menuHitAreas = document.querySelectorAll('.menu-hit-area');
     const screenPath = 'Last Knight Assets/Main Screen Button Assets/';
+
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('button');
+      if (button && !button.disabled) this.playSoundEffect('click');
+    });
 
     function closeSubScreen() {
       subScreen.classList.remove('is-open');
@@ -297,11 +492,21 @@ const LastKnightGame = {
       subScreenFrame.classList.remove('is-achievements');
       subScreenFrame.classList.remove('is-skills');
       subScreenFrame.classList.remove('is-stats');
+      subScreenFrame.classList.remove('is-quests');
+      subScreenFrame.classList.remove('is-leaderboard');
       subScreenFrame.classList.remove('is-settings');
+      LastKnightGame.startMusic('main');
       LastKnightGame.state.arena.active = false;
       LastKnightGame.state.arena.gameOver = false;
       LastKnightGame.stopArenaMovement();
       LastKnightGame.stopEnemySystem();
+      const redeemStatus = settingsPanel.querySelector('#redeem-code-status');
+      const redeemInput = settingsPanel.querySelector('#redeem-code');
+      if (redeemStatus) {
+        redeemStatus.textContent = '';
+        redeemStatus.className = '';
+      }
+      if (redeemInput) redeemInput.value = '';
       enemyLayer.innerHTML = '';
       projectileLayer.innerHTML = '';
       LastKnightGame.state.arena.pendingEnemies = 0;
@@ -321,18 +526,27 @@ const LastKnightGame = {
         subScreenFrame.style.aspectRatio = menuHitArea.dataset.screenAspect || '1448 / 1086';
         subScreenFrame.classList.toggle('is-playtime', screenName === 'Play Time Screen.png');
         subScreenFrame.classList.toggle('is-shop', screenName === 'Shop Screen.png');
-        if (screenName === 'Shop Screen.png') this.renderShopOffers(shopOffers);
+        if (screenName === 'Shop Screen.png') {
+          this.renderShopOffers(shopOffers);
+          this.renderSkinOffers(skinOffers);
+        }
         subScreenFrame.classList.toggle('is-achievements', screenName === 'Achievements Screen.png');
         if (screenName === 'Achievements Screen.png') this.renderAchievements(achievementList);
         subScreenFrame.classList.toggle('is-skills', screenName === 'Skills Screen.png');
         if (screenName === 'Skills Screen.png') this.renderSkills(document.querySelector('#skills-tree'));
         subScreenFrame.classList.toggle('is-stats', screenName === 'Stats Screen.png');
         if (screenName === 'Stats Screen.png') this.renderStatsOverview(document.querySelector('#stats-overview'));
+        subScreenFrame.classList.toggle('is-quests', screenName === 'Quest Screen.png');
+        if (screenName === 'Quest Screen.png') this.renderDailyQuests();
+        subScreenFrame.classList.toggle('is-leaderboard', screenName === 'Leaderboard Screen.png');
+        if (screenName === 'Leaderboard Screen.png') this.renderLeaderboard('waves', leaderboardRows, leaderboardTabs);
         subScreenFrame.classList.toggle('is-settings', screenName === 'Settings Screen.png');
         if (screenName === 'Settings Screen.png') this.initializeSettings(settingsPanel);
         const isArena = screenName === 'Last Knight Arena Asset.gif';
         subScreenFrame.classList.toggle('is-arena', isArena);
         this.state.arena.active = isArena;
+        if (isArena) this.startMusic('arena');
+        else this.startMusic('main');
         if (isArena) {
           this.initializeArena(arenaPlayer, arenaHotbar, upgradePhase, upgradeCards, enemyLayer, projectileLayer, playerVitals);
         }
@@ -350,6 +564,26 @@ const LastKnightGame = {
       const claimButton = event.target.closest('[data-reward-index]');
       if (!claimButton || claimButton.disabled) return;
       this.claimReward(Number(claimButton.dataset.rewardIndex));
+    });
+
+    shopOffers.addEventListener('click', (event) => {
+      const paymentButton = event.target.closest('[data-payment-url]');
+      if (!paymentButton) return;
+      window.open(paymentButton.dataset.paymentUrl, '_blank', 'noopener,noreferrer');
+    });
+
+    skinOffers.addEventListener('click', (event) => {
+      const purchaseButton = event.target.closest('[data-skin]');
+      if (!purchaseButton || purchaseButton.disabled) return;
+      const skin = purchaseButton.dataset.skin;
+      if (this.state.ownedSkins.includes(skin)) this.equipSkin(skin);
+      else this.purchaseSkin(skin);
+    });
+
+    dailyQuestClaim.addEventListener('click', () => this.claimDailyQuestReward());
+
+    leaderboardTabs.forEach((tab) => {
+      tab.addEventListener('click', () => this.renderLeaderboard(tab.dataset.leaderboardType, leaderboardRows, leaderboardTabs));
     });
 
     arenaHotbar.addEventListener('click', (event) => {
@@ -419,10 +653,14 @@ const LastKnightGame = {
     this.state.arena.acquiredSpecials = new Set();
     this.state.arena.projectiles = [];
     this.state.arena.fireTrails = [];
+    this.state.arena.fireTrailLastAt = 0;
     this.state.arena.hitCount = 0;
     this.state.arena.gameOver = false;
     this.state.arena.pendingTypes = [];
     clearTimeout(this.state.arena.potionTimer);
+    this.state.arena.potionTimer = null;
+    const existingPotion = document.querySelector('#arena-potions .arena-potion');
+    if (existingPotion) existingPotion.remove();
     this.state.arena.potion = null;
     this.state.arena.potionBuffTimers.forEach((timer) => clearTimeout(timer));
     this.state.arena.potionBuffTimers = [];
@@ -435,9 +673,11 @@ const LastKnightGame = {
     this.state.arena.currentShield = this.state.arena.stats.shield;
     this.state.arena.lastDamageAt = 0;
     this.state.arena.nextAttackAt = 0;
+    this.state.arena.noCooldownUntil = 0;
+    this.state.arena.immuneUntil = 0;
     document.querySelector('#arena-wave-number').textContent = `Wave ${this.state.arena.wave}`;
     document.querySelector('#arena-enemies-left').textContent = 'Enemies Left: 0';
-    arenaPlayer.src = 'Last Knight Assets/Player Skin Models/Default Player Model/Default Player Sword.png';
+    arenaPlayer.src = this.getPlayerModelPath('sword');
     this.renderArenaHotbar(arenaHotbar);
     this.renderArenaPlayer(arenaPlayer);
     this.renderPlayerVitals(playerVitals);
@@ -567,18 +807,17 @@ const LastKnightGame = {
   schedulePotion() {
     clearTimeout(this.state.arena.potionTimer);
     if (this.state.arena.gameOver || this.state.arena.paused) return;
-    const delay = (30 + Math.random() * 15) * 1000;
+    const delay = (15 + Math.random() * 15) * 1000;
     this.state.arena.potionTimer = setTimeout(() => this.spawnPotion(), delay);
   },
 
   spawnPotion() {
     if (!this.state.arena.active || this.state.arena.paused || this.state.arena.gameOver) return;
     const roll = Math.random();
-    const type = roll < 0.2 ? 'damage' : roll < 0.6 ? 'health' : 'speed';
-    const potion = document.createElement('button');
+    const type = roll < 0.3 ? 'health' : roll < 0.5 ? 'speed' : roll < 0.7 ? 'damage' : roll < 0.9 ? 'cooldown' : 'immunity';
+    const potion = document.createElement('span');
     potion.className = `arena-potion arena-potion--${type}`;
-    potion.type = 'button';
-    potion.textContent = type === 'health' ? '♥' : type === 'speed' ? '⚡' : '✦';
+    potion.textContent = '';
     potion.setAttribute('aria-label', `${type} potion`);
     const x = 20 + Math.random() * 60;
     const y = 25 + Math.random() * 45;
@@ -593,16 +832,22 @@ const LastKnightGame = {
     if (!arena.potion) return;
     arena.potion.element.remove();
     arena.potion = null;
-    if (type === 'health') arena.currentHealth = Math.min(arena.stats.health, arena.currentHealth + 20);
-    if (type === 'speed' || type === 'damage') {
-      const stat = type;
-      arena.stats[stat] *= 1.3;
-      const timer = setTimeout(() => { arena.stats[stat] /= 1.3; this.renderStats(); }, type === 'speed' ? 6000 : 8000);
-      arena.potionBuffTimers.push(timer);
+    try {
+      if (type === 'health') arena.currentHealth = Math.min(arena.stats.health, arena.currentHealth + 20);
+      if (type === 'speed' || type === 'damage') {
+        const stat = type;
+        arena.stats[stat] *= 1.3;
+        const timer = setTimeout(() => { arena.stats[stat] /= 1.3; this.renderStats(); }, type === 'speed' ? 6000 : 8000);
+        arena.potionBuffTimers.push(timer);
+      }
+      if (type === 'cooldown') arena.noCooldownUntil = performance.now() + 5000;
+      if (type === 'immunity') arena.immuneUntil = performance.now() + 3000;
+      this.renderStats();
+      this.schedulePotion();
+      this.saveProgress();
+    } finally {
+      if (arena.active && !arena.gameOver) arena.paused = false;
     }
-    this.renderStats();
-    this.schedulePotion();
-    this.updateAchievement('potions', this.state.arena.achievements.find((achievement) => achievement.type === 'potions').progress + 1);
   },
 
   checkPotionContact() {
@@ -671,6 +916,7 @@ const LastKnightGame = {
       this.state.arena.waveCompleteQueued = true;
       this.state.arena.wave += 1;
       this.state.lifetime.highestWave = Math.max(this.state.lifetime.highestWave, this.state.arena.wave);
+      this.updateDailyQuest('wave', this.state.arena.wave, 'max');
       this.restorePlayerVitals();
       this.state.arena.paused = true;
       this.showUpgradePhase(document.querySelector('#arena-upgrade-phase'), document.querySelector('#arena-upgrade-cards'));
@@ -694,11 +940,13 @@ const LastKnightGame = {
     }
     setTimeout(() => enemy.element.classList.remove('is-attacking', 'is-firing', 'is-poking'), 260);
     if (!isRanged) {
+      this.playSoundEffect(enemy.type === 'assassin' || enemy.type === 'spearer' ? 'dagger' : 'sword');
       this.applyPlayerDamage(enemy.damage);
       return;
     }
     const target = this.getDelayedPlayerPosition(performance.now());
     const angle = Math.atan2(target.y - enemy.y, target.x - enemy.x);
+    this.playSoundEffect('projectile');
     this.spawnProjectile(projectileLayer, enemy.x, enemy.y, angle, 'Arrow Projectile.png', enemy.type === 'boss' ? 25 : enemy.damage, null, false);
   },
 
@@ -768,6 +1016,7 @@ const LastKnightGame = {
   applyPlayerDamage(amount) {
     const arena = this.state.arena;
     if (arena.gameOver) return;
+    if (performance.now() < arena.immuneUntil) return;
     let remaining = amount;
     if (arena.currentShield > 0) {
       const absorbed = Math.min(arena.currentShield, remaining);
@@ -798,6 +1047,7 @@ const LastKnightGame = {
     const arena = this.state.arena;
     const total = Math.floor(arena.runCoins * (1 + arena.wave * 0.1));
     this.addCoins(total);
+    this.updateDailyQuest('runs', 1);
     arena.gameOver = false;
   },
 
@@ -838,21 +1088,93 @@ const LastKnightGame = {
   renderStatsOverview(overview) {
     if (!overview) return;
     const totalSeconds = this.state.lifetime.playSeconds;
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
     const values = [
       ['Total Coins', this.state.lifetime.coins.toLocaleString()],
       ['Enemies Defeated', this.state.lifetime.enemies.toLocaleString()],
       ['Highest Wave', this.state.lifetime.highestWave.toString()],
-      ['Play Time', `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`],
+      ['Play Time', this.formatPlayDuration(totalSeconds)],
     ];
     overview.innerHTML = values.map(([label, value]) => `<article class="stats-card"><small>${label}</small><strong>${value}</strong></article>`).join('');
   },
 
+  formatPlayDuration(totalSeconds) {
+    const seconds = Math.max(0, Math.floor(totalSeconds));
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  },
+
   renderShopOffers(shopOffers) {
     const offers = [['$0.99', '2,000'], ['$2.99', '6,000'], ['$4.99', '10,000'], ['$9.99', '20,000'], ['$19.99', '40,000'], ['$29.99', '60,000']];
-    shopOffers.innerHTML = offers.map(([price, coins]) => `<article class="shop-offer"><div class="shop-offer-copy"><strong>${coins} Coins</strong><span>${price}</span></div><button type="button" disabled>Purchase</button></article>`).join('');
+    shopOffers.innerHTML = offers.map(([price, coins]) => {
+      const amount = price.replace('$', '');
+      const paymentUrl = `https://paypal.me/BensonLiu2008/${amount}`;
+      return `<article class="shop-offer"><div class="shop-offer-copy"><strong>${coins} Coins</strong><span>${price} USD</span></div><button type="button" data-payment-url="${paymentUrl}">PayPal</button></article>`;
+    }).join('');
+  },
+
+  async renderLeaderboard(type, rows, tabs) {
+    if (!rows) return;
+    if (!this.authClient) {
+      rows.innerHTML = '<div class="leaderboard-empty">Leaderboard unavailable</div>';
+      return;
+    }
+    const scoreColumn = type === 'waves' ? 'highest_wave' : type === 'coins' ? 'lifetime_coins' : 'play_seconds';
+    const { data, error } = await this.authClient.from('leaderboard_scores').select(`username,${scoreColumn}`).order(scoreColumn, { ascending: false }).limit(10);
+    if (error) {
+      rows.innerHTML = '<div class="leaderboard-empty">Leaderboard unavailable</div>';
+      return;
+    }
+    const entries = data || [];
+    const formatScore = (score) => type === 'playTime' ? this.formatPlayDuration(score) : score.toLocaleString();
+    rows.innerHTML = entries.length
+      ? entries.map((entry, index) => `<div class="leaderboard-row"><span>${index + 1}</span><strong>${entry.username}</strong><b>${formatScore(Number(entry[scoreColumn]) || 0)}</b></div>`).join('')
+      : '<div class="leaderboard-empty">No scores yet</div>';
+    tabs.forEach((tab) => {
+      const selected = tab.dataset.leaderboardType === type;
+      tab.classList.toggle('is-selected', selected);
+      tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
+  },
+
+  renderSkinOffers(skinOffers) {
+    if (!skinOffers) return;
+    const skins = [
+      ['Brunswick', 'Brunswick Player Model'],
+      ['Murrey', 'Murrey Player Model'],
+      ['Ochre', 'Ochre Player Model'],
+      ['Plackart', 'Plackart Player Model'],
+      ['Russet', 'Russet Player Model'],
+      ['Verdigris', 'Verdigris Player Model'],
+    ];
+    skinOffers.innerHTML = skins.map(([name, folder]) => {
+      const owned = this.state.ownedSkins.includes(name);
+      const affordable = this.state.coins >= 500;
+      const equipped = this.state.equippedSkin === name;
+      return `<article class="skin-offer">
+        <img src="Last Knight Assets/Player Skin Models/${folder}/${name} Player Fists.png" alt="${name} skin">
+        <div class="skin-offer-copy"><strong>${name}</strong><span>500 Coins</span></div>
+        <button type="button" data-skin="${name}" ${equipped || (!owned && !affordable) ? 'disabled' : ''}>${equipped ? 'Equipped' : owned ? 'Equip' : 'Purchase'}</button>
+      </article>`;
+    }).join('');
+  },
+
+  purchaseSkin(name) {
+    if (this.state.ownedSkins.includes(name) || this.state.coins < 500) return;
+    this.setCoins(this.state.coins - 500);
+    this.state.ownedSkins.push(name);
+    this.updateAchievement('skin', 1);
+    this.renderSkinOffers(document.querySelector('#skin-offers'));
+    this.saveProgress();
+  },
+
+  equipSkin(name) {
+    if (!this.state.ownedSkins.includes(name)) return;
+    this.state.equippedSkin = name;
+    this.renderSkinOffers(document.querySelector('#skin-offers'));
+    this.saveProgress();
   },
 
   renderSpecialSlots() {
@@ -870,13 +1192,21 @@ const LastKnightGame = {
     const slots = [
       ['sword', 'Default Player Sword.png', '1'],
       ['dagger', 'Default Player Dagger.png', '2'],
-      ['javelin', 'Default Player Javelin.png', '3'],
+      ['javelin', 'Default Player Spear.png', '3'],
       ['crossbow', 'Default Player Crossbow.png', '4'],
     ];
     arenaHotbar.innerHTML = slots.map(([weapon, icon, key]) => {
       const unlocked = this.state.arena.unlockedWeapons.includes(weapon);
-      return `<button class="arena-hotbar__slot${weapon === this.state.arena.weapon ? ' is-selected' : ''}" data-weapon="${weapon}" ${unlocked ? '' : 'disabled'} aria-label="${weapon}"><img class="arena-hotbar__icon" src="Last Knight Assets/Player Skin Models/Default Player Model/${icon}" alt="${weapon}"><span class="arena-hotbar__key">${key}</span></button>`;
+      const weaponImage = this.getPlayerModelPath(weapon);
+      return `<button class="arena-hotbar__slot${weapon === this.state.arena.weapon ? ' is-selected' : ''}" data-weapon="${weapon}" ${unlocked ? '' : 'disabled'} aria-label="${weapon}"><img class="arena-hotbar__icon" src="${weaponImage}" alt="${weapon}"><span class="arena-hotbar__key">${key}</span></button>`;
     }).join('');
+  },
+
+  getPlayerModelPath(weapon) {
+    const labels = { javelin: 'Spear' };
+    const label = labels[weapon] || weapon[0].toUpperCase() + weapon.slice(1);
+    if (!this.state.equippedSkin) return `Last Knight Assets/Player Skin Models/Default Player Model/Default Player ${label}.png`;
+    return `Last Knight Assets/Player Skin Models/${this.state.equippedSkin} Player Model/${this.state.equippedSkin} Player ${label}.png`;
   },
 
   getEnemyFacing(enemy) {
@@ -887,16 +1217,17 @@ const LastKnightGame = {
   playerAttack(arenaPlayer, attackVisual) {
     const arena = this.state.arena;
     const weapons = {
-      dagger: { base: 10, critical: 25, cooldown: 300, range: 6, arc: 42, effect: 'slashing' },
+      dagger: { base: 10, critical: 25, cooldown: 300, range: 10, arc: 42, effect: 'slashing', visualEffect: 'dagger-slashing' },
       sword: { base: 25, critical: 40, cooldown: 700, range: 11, arc: 72, effect: 'slashing' },
       javelin: { base: 35, critical: 60, cooldown: 1500, range: 16, arc: 24, effect: 'poking', projectile: 'Javelin Projectile.png' },
       crossbow: { base: 70, critical: 100, cooldown: 3000, range: 42, arc: 20, effect: 'shooting', projectile: 'Arrow Projectile.png' },
     };
     const weapon = weapons[arena.weapon] || weapons.sword;
     const now = performance.now();
-    if (now < arena.nextAttackAt) return;
+    if (now < arena.nextAttackAt && now >= arena.noCooldownUntil) return;
     arena.nextAttackAt = now + weapon.cooldown / arena.stats.attackSpeed;
-    if (!weapon.projectile) this.renderPlayerAttack(attackVisual, weapon.effect);
+    this.playSoundEffect(weapon.projectile ? 'projectile' : arena.weapon === 'dagger' ? 'dagger' : 'sword');
+    if (!weapon.projectile) this.renderPlayerAttack(attackVisual, weapon.visualEffect || weapon.effect);
     const facingRadians = this.state.arena.angle * Math.PI / 180;
     const targets = arena.enemies.filter((enemy) => {
       const dx = enemy.x - arena.x;
@@ -904,7 +1235,7 @@ const LastKnightGame = {
       const distance = Math.hypot(dx, dy);
       const angleToEnemy = Math.atan2(dy, dx);
       const angleDifference = Math.abs(Math.atan2(Math.sin(angleToEnemy - facingRadians), Math.cos(angleToEnemy - facingRadians))) * 180 / Math.PI;
-      const range = weapon.effect === 'slashing' || weapon.effect === 'poking' ? weapon.range * arena.stats.meleeRange : weapon.range;
+      const range = ['slashing', 'poking'].includes(weapon.effect) ? weapon.range * arena.stats.meleeRange : weapon.range;
       return distance <= range && angleDifference <= weapon.arc / 2;
     });
     if (weapon.projectile) {
@@ -935,6 +1266,8 @@ const LastKnightGame = {
     setTimeout(() => target.element.classList.remove('is-hit'), 140);
     if (target.currentHp <= 0) {
       this.addRunCoins(target.type);
+      this.updateDailyQuest('kills', 1);
+      if (target.type === 'boss') this.updateDailyQuest('boss', 1);
       this.state.lifetime.enemies += 1;
       this.updateAchievement('defeats', 1);
       if (this.state.arena.acquiredSpecials.has('lifeSteal')) this.state.arena.currentHealth = Math.min(this.state.arena.stats.health, this.state.arena.currentHealth + Math.max(1, Math.round(target.maxHp * 0.02)));
@@ -950,7 +1283,9 @@ const LastKnightGame = {
       sniper: [15, 25], tank: [20, 35], boss: [100, 150],
     };
     const range = rewards[enemyType] || [0, 0];
-    this.state.arena.runCoins += this.randomWholeNumber(range[0], range[1]);
+    const coins = this.randomWholeNumber(range[0], range[1]);
+    this.state.arena.runCoins += coins;
+    this.updateDailyQuest('coins', coins);
     this.updateAchievement('coins', this.state.arena.runCoins);
     this.renderRunCoins();
   },
@@ -963,8 +1298,22 @@ const LastKnightGame = {
     this.saveProgress();
   },
 
+  syncAchievementsFromStats() {
+    const values = {
+      defeats: this.state.lifetime.enemies,
+      wave: this.state.lifetime.highestWave,
+      skin: this.state.ownedSkins.length > 0 ? 1 : 0,
+      time: this.state.lifetime.playSeconds,
+      lifetimeCoins: this.state.lifetime.coins,
+    };
+    this.state.arena.achievements.forEach((achievement) => {
+      if (values[achievement.type] !== undefined) achievement.progress = Math.max(achievement.progress, values[achievement.type]);
+    });
+  },
+
   renderAchievements(list) {
     if (!list) return;
+    this.syncAchievementsFromStats();
     list.innerHTML = this.state.arena.achievements.map((achievement) => {
       const progress = Math.min(achievement.progress, achievement.goal);
       const complete = progress >= achievement.goal;
@@ -998,8 +1347,42 @@ const LastKnightGame = {
     const codeInput = panel.querySelector('#redeem-code');
     const codeButton = panel.querySelector('#redeem-code-button');
     const status = panel.querySelector('#redeem-code-status');
-    volume.oninput = () => { output.value = `${volume.value}%`; output.textContent = `${volume.value}%`; };
-    codeButton.onclick = () => { status.textContent = codeInput.value.trim() ? 'Code received' : 'Enter a code'; };
+    const savedVolume = Math.round(this.state.musicVolume * 100);
+    volume.value = String(savedVolume);
+    output.value = `${savedVolume}%`;
+    output.textContent = `${savedVolume}%`;
+    this.setAudioVolume(volume.value);
+    volume.oninput = () => {
+      output.value = `${volume.value}%`;
+      output.textContent = `${volume.value}%`;
+      this.setAudioVolume(volume.value);
+      this.saveProgress();
+    };
+    codeButton.onclick = () => {
+      const code = codeInput.value;
+      status.className = '';
+      if (!code) {
+        status.textContent = 'Enter a code';
+        status.classList.add('is-invalid');
+        return;
+      }
+      if (code !== 'steelhacks') {
+        status.textContent = 'Invalid code';
+        status.classList.add('is-invalid');
+        return;
+      }
+      if (this.state.redeemedCodes.includes(code)) {
+        status.textContent = 'Code already redeemed';
+        status.classList.add('is-invalid');
+        return;
+      }
+      this.state.redeemedCodes.push(code);
+      this.addCoins(200);
+      status.textContent = 'Redeemed successfully: +200 Coins';
+      status.classList.add('is-success');
+      codeInput.value = '';
+      this.saveProgress();
+    };
   },
 
   buySkill(skill, tier, tree) {
@@ -1050,7 +1433,7 @@ const LastKnightGame = {
     if (!this.state.arena.unlockedWeapons.includes(weapon)) return;
     this.state.arena.weapon = weapon;
     const label = weapon[0].toUpperCase() + weapon.slice(1);
-    arenaPlayer.src = `Last Knight Assets/Player Skin Models/Default Player Model/Default Player ${label}.png`;
+    arenaPlayer.src = this.getPlayerModelPath(weapon);
     arenaHotbar.querySelectorAll('.arena-hotbar__slot').forEach((slot) => slot.classList.toggle('is-selected', slot.dataset.weapon === weapon));
   },
 
@@ -1083,12 +1466,15 @@ const LastKnightGame = {
   },
 
   createFireTrail() {
+    const now = performance.now();
+    if (now - this.state.arena.fireTrailLastAt < 180) return;
+    this.state.arena.fireTrailLastAt = now;
     const element = document.createElement('span');
-    element.className = 'arena-fire-trail';
+    element.className = 'arena-floor-burn';
     element.style.left = `${this.state.arena.x}%`;
     element.style.top = `${this.state.arena.y}%`;
     document.querySelector('#arena-controls').appendChild(element);
-    this.state.arena.fireTrails.push({ element, x: this.state.arena.x, y: this.state.arena.y, expires: performance.now() + 3500, hitAt: new Map() });
+    this.state.arena.fireTrails.push({ element, x: this.state.arena.x, y: this.state.arena.y, expires: now + 3500, hitAt: new Map() });
   },
 
   updateFireTrails() {
@@ -1100,7 +1486,7 @@ const LastKnightGame = {
       }
       this.state.arena.enemies.forEach((enemy) => {
         if (Math.hypot(enemy.x - trail.x, enemy.y - trail.y) < 5 && (trail.hitAt.get(enemy) || 0) <= now) {
-          this.damageEnemy(enemy, { base: 0.15, critical: 0.15 });
+          this.damageEnemy(enemy, { base: 1.5, critical: 1.5 });
           trail.hitAt.set(enemy, now + 500);
         }
       });
