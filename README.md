@@ -52,6 +52,14 @@ Every run can play differently because the upgrades and enemies you encounter ca
 
 ---
 
+# 🕹️ Controls
+
+- WASD - Move
+- 1 - Hotbar Slot 1
+- 2 - Hotbar Slot 2
+- 3 - Hotbar Slot 3
+- 4 - Hotbar Slot 4
+
 # 👹 Enemy Waves
 
 Enemies continuously enter the battlefield and attempt to defeat your knight. As you survive more waves, the challenge icnreases. This means that simply surviving the first few waves is not enough: you need to continually improve your character through upgrades. Your **wave count** represents how far you have progressed during your current run. The goal is to survive for as many waves as possible.
