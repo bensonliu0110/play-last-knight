@@ -55,6 +55,8 @@ Every run can play differently because the upgrades and enemies you encounter ca
 # 🕹️ Controls
 
 - WASD - Move
+- Click - Attack
+- Change Direction - Mouse
 - 1 - Hotbar Slot 1
 - 2 - Hotbar Slot 2
 - 3 - Hotbar Slot 3
