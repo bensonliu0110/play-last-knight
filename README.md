@@ -135,7 +135,7 @@ Last Knight is designed around a simple but repeatable progression cycle:
 
 # ⚙️ Settings
 
-The **Settings** menu allows players to adjust their music volume and redeem in-game codes. For instance, new players are awareded **200 Coins** by entering the code **"steelhacks"**!
+The **Settings** menu allows players to adjust their music volume and redeem in-game codes. For instance, new players are awarded **200 Coins** by entering the code **"steelhacks"**!
 
 ---
 
